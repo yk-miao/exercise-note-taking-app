@@ -1,7 +1,25 @@
+
 from flask import Blueprint, jsonify, request
 from src.models.note import Note, db
+from src.llm import translate_text
 
 note_bp = Blueprint('note', __name__)
+
+@note_bp.route('/notes/<int:note_id>/translate', methods=['POST'])
+def translate_note(note_id):
+    """Translate a note's title and content to a target language using LLM"""
+    note = Note.query.get_or_404(note_id)
+    data = request.json or {}
+    target_language = data.get('target_language', 'Chinese')
+    try:
+        translated_title = translate_text(note.title, target_language=target_language)
+        translated_content = translate_text(note.content, target_language=target_language)
+        return jsonify({
+            'translated_title': translated_title,
+            'translated_content': translated_content
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @note_bp.route('/notes', methods=['GET'])
 def get_notes():
