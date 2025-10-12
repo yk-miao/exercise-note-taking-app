@@ -8,6 +8,14 @@
     ],
     "routes": [
         {
+            "src": "/favicon.ico",
+            "status": 204
+        },
+        {
+            "src": "/api/(.*)",
+            "dest": "src/main.py"
+        },
+        {
             "src": "/(.*)",
             "dest": "src/main.py"
         }
