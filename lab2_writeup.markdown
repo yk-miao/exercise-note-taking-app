@@ -33,13 +33,6 @@ DATABASE_URL=postgresql://localhost/notetaker_dev
 FLASK_ENV=development
 ```
 
-## Improvements
-- Better data consistency
-- Improved performance
-- Proper database migrations
-- Support for concurrent users
-- Better scalability
-
 ## Migration Steps
 ```bash
 # Initialize and run migrations
