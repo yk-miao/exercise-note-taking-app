@@ -3,7 +3,7 @@ import sys
 # DON'T CHANGE THIS !!!
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
 from src.models.user import db
 from src.routes.user import user_bp
@@ -19,6 +19,14 @@ def create_app(config_name='default'):
     app.config.from_object(config[config_name])
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'asdf#FGSgvasgf$5$WGT')
     
+    @app.errorhandler(500)
+    def handle_500(e):
+        return jsonify({
+            'error': 'Internal Server Error',
+            'message': str(e),
+            'environment': os.getenv('VERCEL_ENV', 'development')
+        }), 500
+    
     # Enable CORS
     CORS(app)
     
@@ -31,9 +39,46 @@ def create_app(config_name='default'):
     
     return app
 
-app = create_app(os.getenv('FLASK_ENV', 'development'))
-with app.app_context():
-    db.create_all()
+app = create_app('production' if os.getenv('VERCEL_ENV') == 'production' else 'development')
+
+# Error handling for Vercel
+@app.errorhandler(500)
+def handle_500(e):
+    return jsonify({
+        'error': 'Internal Server Error',
+        'message': str(e),
+        'details': getattr(e, 'original_exception', str(e))
+    }), 500
+
+try:
+    # Initialize database tables
+    with app.app_context():
+        db.create_all()
+except Exception as e:
+    print(f"Database initialization error: {str(e)}")
+
+# Health check endpoint for Vercel
+@app.route('/api/healthcheck')
+def healthcheck():
+    try:
+        # Test database connection
+        with app.app_context():
+            db.engine.connect()
+            db.create_all()
+        return jsonify({
+            "status": "healthy",
+            "environment": os.getenv('VERCEL_ENV', 'development'),
+            "database": "connected"
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "unhealthy",
+            "error": str(e),
+            "environment": os.getenv('VERCEL_ENV', 'development')
+        }), 500
+@app.route('/api/healthcheck')
+def healthcheck():
+    return jsonify({"status": "healthy", "environment": os.getenv('VERCEL_ENV', 'development')})
 
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')

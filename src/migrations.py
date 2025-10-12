@@ -14,10 +14,21 @@ def init_migrations(app):
 
 def setup_database(app):
     """Set up the database and migrations"""
-    # Initialize SQLAlchemy
-    db.init_app(app)
-    
-    # Initialize migrations
+    try:
+        # Initialize SQLAlchemy
+        db.init_app(app)
+        
+        # Initialize migrations
+        migrate = init_migrations(app)
+        
+        # Test database connection
+        with app.app_context():
+            db.engine.connect()
+        
+        return db, migrate
+    except Exception as e:
+        print(f"Database setup error: {str(e)}")
+        raise
     migrate = init_migrations(app)
     
     return db, migrate
