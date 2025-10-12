@@ -5,7 +5,7 @@ from src.llm import translate_text
 
 note_bp = Blueprint('note', __name__)
 
-@note_bp.route('/notes/<int:note_id>/translate', methods=['POST'])
+@note_bp.route('/notes/<uuid:note_id>/translate', methods=['POST'])
 def translate_note(note_id):
     """Translate a note's title and content to a target language using LLM"""
     note = Note.query.get_or_404(note_id)
@@ -43,15 +43,13 @@ def create_note():
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@note_bp.route('/notes/<int:note_id>', methods=['GET'])
+@note_bp.route('/notes/<uuid:note_id>', methods=['GET'])
 def get_note(note_id):
-    """Get a specific note by ID"""
-    note = Note.query.get_or_404(note_id)
-    return jsonify(note.to_dict())
+    """Get a note"""
 
-@note_bp.route('/notes/<int:note_id>', methods=['PUT'])
-def update_note(note_id):
-    """Update a specific note"""
+@note_bp.route('/notes/<uuid:note_id>', methods=['PUT'])
+def edit_note(note_id):
+    """Edit a note's title and content"""
     try:
         note = Note.query.get_or_404(note_id)
         data = request.json
@@ -67,9 +65,9 @@ def update_note(note_id):
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-@note_bp.route('/notes/<int:note_id>', methods=['DELETE'])
+@note_bp.route('/notes/<uuid:note_id>', methods=['DELETE'])
 def delete_note(note_id):
-    """Delete a specific note"""
+    """Delete a note"""
     try:
         note = Note.query.get_or_404(note_id)
         db.session.delete(note)

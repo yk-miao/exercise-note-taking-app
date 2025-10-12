@@ -9,25 +9,29 @@ from src.models.user import db
 from src.routes.user import user_bp
 from src.routes.note import note_bp
 from src.models.note import Note
+from src.config import config
+from src.migrations import setup_database
 
-app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
-app.config['SECRET_KEY'] = 'asdf#FGSgvasgf$5$WGT'
+def create_app(config_name='default'):
+    app = Flask(__name__, static_folder=os.path.join(os.path.dirname(__file__), 'static'))
+    
+    # Load configuration
+    app.config.from_object(config[config_name])
+    app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'asdf#FGSgvasgf$5$WGT')
+    
+    # Enable CORS
+    CORS(app)
+    
+    # Set up database and migrations
+    db, migrate = setup_database(app)
+    
+    # Register blueprints
+    app.register_blueprint(user_bp, url_prefix='/api')
+    app.register_blueprint(note_bp, url_prefix='/api')
+    
+    return app
 
-# Enable CORS for all routes
-CORS(app)
-
-# register blueprints
-app.register_blueprint(user_bp, url_prefix='/api')
-app.register_blueprint(note_bp, url_prefix='/api')
-# configure database to use repository-root `database/app.db`
-ROOT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-DB_PATH = os.path.join(ROOT_DIR, 'database', 'app.db')
-# ensure database directory exists
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{DB_PATH}"
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-db.init_app(app)
+app = create_app(os.getenv('FLASK_ENV', 'development'))
 with app.app_context():
     db.create_all()
 
