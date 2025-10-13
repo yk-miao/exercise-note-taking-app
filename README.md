@@ -32,7 +32,8 @@ The application is deployed and accessible at: **https://3dhkilc88dkk.manus.spac
 - **Flask-CORS**: Cross-origin resource sharing support
 
 ### Database
-- **SQLite**: Lightweight, file-based database for data persistence
+- **Postgres (Supabase)**: Production database for Vercel deployments
+- **SQLite (local fallback)**: For local development when `DATABASE_URL` is not set
 
 ## 📁 Project Structure
 
@@ -160,9 +161,24 @@ The application is configured for easy deployment with:
 - `SECRET_KEY`: Flask secret key for sessions
 
 ### Database Configuration
-- Database file: `src/database/app.db`
-- Automatic table creation on first run
-- SQLAlchemy ORM for database operations
+- The app reads `DATABASE_URL` and connects automatically.
+- If `DATABASE_URL` is absent, it falls back to SQLite at `database/app.db`.
+- `postgres://` URLs are normalized to `postgresql+psycopg://` and `sslmode=require` is appended if missing.
+- SQLAlchemy ORM with pre-ping and connection pooling is enabled by default.
+
+#### Supabase (Postgres) Setup
+1. Create a project in Supabase.
+2. Go to Project Settings → Database → Connection string.
+3. Copy the `psql` or pooled connection string. Example:
+   `postgres://USER:PASSWORD@HOST:PORT/DATABASE`.
+4. Set environment variable `DATABASE_URL` to your connection string. The app will normalize it.
+
+#### Vercel Deployment
+Set these Environment Variables in your Vercel project:
+- `DATABASE_URL`: Supabase Postgres connection string
+- `SECRET_KEY`: any random secret
+
+Redeploy after setting envs.
 
 ## 📱 Browser Compatibility
 
