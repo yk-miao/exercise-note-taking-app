@@ -194,7 +194,7 @@
         }
 
         .btn-delete {
-            background: #dc3545;
+            background: #ff6b6b;
             color: white;
         }
 
@@ -324,6 +324,79 @@
         .notes-list::-webkit-scrollbar-thumb:hover {
             background: #00bfff;
         }
+
+        /* AI Section Styling */
+        .ai-section {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 2px solid #e1e5e9;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+
+        .ai-section h3 {
+            margin-bottom: 12px;
+            color: #333;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .ai-section textarea {
+            width: 100%;
+            height: 80px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: vertical;
+            margin-bottom: 10px;
+            font-family: inherit;
+            transition: border-color 0.3s ease;
+        }
+
+        .ai-section textarea:focus {
+            outline: none;
+            border-color: #87cefa;
+        }
+
+        .ai-section select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-bottom: 10px;
+            background: white;
+            transition: border-color 0.3s ease;
+        }
+
+        .ai-section select:focus {
+            outline: none;
+            border-color: #87cefa;
+        }
+
+        .ai-section button {
+            width: 100%;
+            padding: 10px;
+            background: linear-gradient(135deg, #b3e0ff 0%, #87cefa 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .ai-section button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+        }
+
+        .ai-section button:active {
+            transform: translateY(0);
+        }
     </style>
 </head>
 <body>
@@ -337,6 +410,22 @@
             <div class="sidebar">
                 <input type="text" class="search-box" id="searchBox" placeholder="🔍 Search notes...">
                 <button class="new-note-btn" id="newNoteBtn">✨ New Note</button>
+                
+                <!-- Natural Language Processing Section -->
+                <div class="ai-section">
+                    <h3>🤖 AI Note Generator</h3>
+                    <textarea id="aiInput" placeholder="Describe your note in natural language...&#10;Example: 'Meeting tomorrow at 3pm with the team about project updates'"></textarea>
+                    <select id="aiLanguage">
+                        <option value="English">English</option>
+                        <option value="Chinese">Chinese</option>
+                        <option value="Spanish">Spanish</option>
+                        <option value="French">French</option>
+                        <option value="German">German</option>
+                        <option value="Japanese">Japanese</option>
+                        <option value="Korean">Korean</option>
+                    </select>
+                    <button id="generateNoteBtn">🤖 Generate Note</button>
+                </div>
                 
                 <div class="notes-list" id="notesList">
                     <div class="loading">Loading notes...</div>
@@ -392,6 +481,7 @@
                 document.getElementById('deleteBtn').addEventListener('click', () => this.deleteNote());
                 document.getElementById('searchBox').addEventListener('input', (e) => this.searchNotes(e.target.value));
                 document.getElementById('translateBtn').addEventListener('click', () => this.translateNote());
+                document.getElementById('generateNoteBtn').addEventListener('click', () => this.generateAINote());
             }
 
             async translateNote() {
@@ -420,6 +510,50 @@
                     this.showMessage('Translation error', 'error');
                 }
             }
+
+            async generateAINote() {
+                const userInput = document.getElementById('aiInput').value.trim();
+                const outputLanguage = document.getElementById('aiLanguage').value;
+                
+                if (!userInput) {
+                    this.showMessage('Please enter some text to generate a note', 'error');
+                    return;
+                }
+                
+                this.showMessage('Generating note with AI...', 'loading');
+                
+                try {
+                    const response = await fetch('/api/notes/process-natural-language', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_input: userInput,
+                            output_language: outputLanguage
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        // Clear the input
+                        document.getElementById('aiInput').value = '';
+                        
+                        // Add the new note to our notes array
+                        this.notes.unshift(data.note);
+                        this.renderNotesList();
+                        
+                        // Select the newly created note
+                        this.selectNote(data.note.id);
+                        
+                        this.showMessage(`AI note generated successfully in ${outputLanguage}!`, 'success');
+                    } else {
+                        this.showMessage(data.error || 'Failed to generate note', 'error');
+                    }
+                } catch (error) {
+                    console.error('AI generation error:', error);
+                    this.showMessage('Error generating note', 'error');
+                }
+            }
             constructor() {
                 this.notes = [];
                 this.currentNote = null;
@@ -438,6 +572,7 @@
                 document.getElementById('deleteBtn').addEventListener('click', () => this.deleteNote());
                 document.getElementById('searchBox').addEventListener('input', (e) => this.searchNotes(e.target.value));
                 document.getElementById('translateBtn').addEventListener('click', () => this.translateNote());
+                document.getElementById('generateNoteBtn').addEventListener('click', () => this.generateAINote());
                 
                 // Auto-save on content change (debounced)
                 let saveTimeout;

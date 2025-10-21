@@ -1,7 +1,8 @@
 
 from flask import Blueprint, jsonify, request
 from src.models.note import Note, db
-from src.llm import translate_text
+from src.llm import translate_text, process_user_notes
+import json
 
 note_bp = Blueprint('note', __name__)
 
@@ -91,4 +92,47 @@ def search_notes():
     ).order_by(Note.updated_at.desc()).all()
     
     return jsonify([note.to_dict() for note in notes])
+
+@note_bp.route('/notes/process-natural-language', methods=['POST'])
+def process_natural_language_note():
+    """Process natural language input and create a structured note"""
+    try:
+        data = request.json
+        if not data or 'user_input' not in data:
+            return jsonify({'error': 'user_input is required'}), 400
+        
+        user_input = data['user_input']
+        output_language = data.get('output_language', 'English')
+        
+        # Process the natural language input using LLM
+        processed_result = process_user_notes(output_language, user_input)
+        
+        # Parse the JSON response from LLM
+        try:
+            note_data = json.loads(processed_result)
+        except json.JSONDecodeError:
+            # If JSON parsing fails, create a fallback note
+            note_data = {
+                "Title": "AI Generated Note",
+                "Notes": processed_result,
+                "Tags": ["ai-generated"]
+            }
+        
+        # Create the note in the database
+        note = Note(
+            title=note_data.get('Title', 'Untitled'),
+            content=note_data.get('Notes', '')
+        )
+        
+        db.session.add(note)
+        db.session.commit()
+        
+        return jsonify({
+            'note': note.to_dict(),
+            'processed_data': note_data
+        }), 201
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
