@@ -36,7 +36,13 @@ def create_note():
         if not data or 'title' not in data or 'content' not in data:
             return jsonify({'error': 'Title and content are required'}), 400
         
-        note = Note(title=data['title'], content=data['content'])
+        note = Note(
+            title=data['title'], 
+            content=data['content'],
+            tags=data.get('tags'),
+            event_date=data.get('event_date'),
+            event_time=data.get('event_time')
+        )
         db.session.add(note)
         db.session.commit()
         return jsonify(note.to_dict()), 201
@@ -62,6 +68,9 @@ def update_note(note_id):
         
         note.title = data.get('title', note.title)
         note.content = data.get('content', note.content)
+        note.tags = data.get('tags', note.tags)
+        note.event_date = data.get('event_date', note.event_date)
+        note.event_time = data.get('event_time', note.event_time)
         db.session.commit()
         return jsonify(note.to_dict())
     except Exception as e:
@@ -109,19 +118,55 @@ def process_natural_language_note():
         
         # Parse the JSON response from LLM
         try:
-            note_data = json.loads(processed_result)
-        except json.JSONDecodeError:
+            # Clean the response by removing extra whitespace, newlines, and code fences
+            cleaned_response = processed_result.strip()
+            if cleaned_response.startswith('```json'):
+                cleaned_response = cleaned_response[7:]
+            if cleaned_response.startswith('```'):
+                cleaned_response = cleaned_response[3:]
+            if cleaned_response.endswith('```'):
+                cleaned_response = cleaned_response[:-3]
+            
+            # Remove any leading/trailing whitespace and newlines
+            cleaned_response = cleaned_response.strip()
+            
+            # Try to find JSON object boundaries
+            start_idx = cleaned_response.find('{')
+            end_idx = cleaned_response.rfind('}')
+            if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
+                json_str = cleaned_response[start_idx:end_idx+1]
+                note_data = json.loads(json_str)
+            else:
+                raise json.JSONDecodeError("No valid JSON object found", cleaned_response, 0)
+                
+        except json.JSONDecodeError as e:
             # If JSON parsing fails, create a fallback note
+            print(f"JSON parsing failed: {e}")
+            print(f"Raw response: {processed_result}")
             note_data = {
                 "Title": "AI Generated Note",
                 "Notes": processed_result,
-                "Tags": ["ai-generated"]
+                "Tags": ["ai-generated", "parsing-error", "manual-review"],
+                "EventDate": None,
+                "EventTime": None,
             }
+        
+        title = note_data.get('Title', 'Untitled')
+        content = note_data.get('Notes', '')
+        tags = note_data.get('Tags') or []
+        event_date = note_data.get('EventDate')
+        event_time = note_data.get('EventTime')
+
+        # Convert tags array to comma-separated string
+        tags_str = ", ".join([str(t) for t in tags]) if tags else None
         
         # Create the note in the database
         note = Note(
-            title=note_data.get('Title', 'Untitled'),
-            content=note_data.get('Notes', '')
+            title=title,
+            content=content,
+            tags=tags_str,
+            event_date=event_date,
+            event_time=event_time
         )
         
         db.session.add(note)

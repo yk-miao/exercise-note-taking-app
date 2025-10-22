@@ -194,7 +194,7 @@
         }
 
         .btn-delete {
-            background: #ff6b6b;
+            background: #dc2739;
             color: white;
         }
 
@@ -245,6 +245,7 @@
             outline: none;
             border-color: #87cefa;
         }
+
 
         .empty-state {
             text-align: center;
@@ -402,7 +403,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>📝 NoteTaker</h1>
+            <h1>NoteTaker</h1>
             <p>Organize your thoughts, capture your ideas</p>
         </div>
 
@@ -436,8 +437,8 @@
                 <div class="editor-header">
                     <h2 class="editor-title" id="editorTitle">Select a note to edit</h2>
                     <div class="editor-actions" id="editorActions" style="display: none;">
-                        <button class="btn btn-save" id="saveBtn">💾 Save</button>
-                        <button class="btn btn-delete" id="deleteBtn">🗑️ Delete</button>
+                        <button class="btn btn-save" id="saveBtn">Save</button>
+                        <button class="btn btn-delete" id="deleteBtn">Delete</button>
                         <select id="translateLang" style="border-radius:8px; padding:6px; border:1px solid #ccc; font-size:14px; margin-left:10px;">
                             <option value="Chinese">Chinese</option>
                             <option value="English">English</option>
@@ -447,7 +448,7 @@
                             <option value="Japanese">Japanese</option>
                             <option value="Korean">Korean</option>
                         </select>
-                        <button class="btn" id="translateBtn" style="background:#87cefa; color:white;">🌐 Translate</button>
+                        <button class="btn" id="translateBtn" style="background:#87cefa; color:white;">Translate</button>
                     </div>
                 </div>
 
@@ -463,6 +464,24 @@
                         <label class="form-label" for="noteContent">Content</label>
                         <textarea class="form-textarea" id="noteContent" placeholder="Start writing your note..."></textarea>
                     </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="noteTags">Tags</label>
+                        <input type="text" class="form-input" id="noteTags" placeholder="Enter tags separated by commas...">
+                    </div>
+
+                    <div class="form-group">
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                            <div>
+                                <label class="form-label" for="eventDate">Event Date</label>
+                                <input type="date" class="form-input" id="eventDate" style="position: relative;">
+                            </div>
+                            <div>
+                                <label class="form-label" for="eventTime">Event Time</label>
+                                <input type="time" class="form-input" id="eventTime" style="position: relative;">
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="empty-state" id="emptyState">
@@ -475,6 +494,13 @@
 
     <script>
         class NoteTaker {
+            constructor() {
+                this.notes = [];
+                this.currentNote = null;
+                this.isLoading = false;
+                this.init();
+            }
+
             bindEvents() {
                 document.getElementById('newNoteBtn').addEventListener('click', () => this.createNewNote());
                 document.getElementById('saveBtn').addEventListener('click', () => this.saveNote());
@@ -535,16 +561,23 @@
                     const data = await response.json();
                     
                     if (response.ok) {
-                        // Clear the input
                         document.getElementById('aiInput').value = '';
-                        
-                        // Add the new note to our notes array
                         this.notes.unshift(data.note);
                         this.renderNotesList();
+
+                        // Populate the new input fields with AI-generated data
+                        const pd = data.processed_data || {};
+                        if (Array.isArray(pd.Tags)) {
+                            document.getElementById('noteTags').value = pd.Tags.slice(0, 3).join(', ');
+                        }
+                        if (pd.EventDate) {
+                            document.getElementById('eventDate').value = pd.EventDate;
+                        }
+                        if (pd.EventTime) {
+                            document.getElementById('eventTime').value = pd.EventTime;
+                        }
                         
-                        // Select the newly created note
                         this.selectNote(data.note.id);
-                        
                         this.showMessage(`AI note generated successfully in ${outputLanguage}!`, 'success');
                     } else {
                         this.showMessage(data.error || 'Failed to generate note', 'error');
@@ -554,39 +587,10 @@
                     this.showMessage('Error generating note', 'error');
                 }
             }
-            constructor() {
-                this.notes = [];
-                this.currentNote = null;
-                this.isLoading = false;
-                this.init();
-            }
 
             async init() {
                 this.bindEvents();
                 await this.loadNotes();
-            }
-
-            bindEvents() {
-                document.getElementById('newNoteBtn').addEventListener('click', () => this.createNewNote());
-                document.getElementById('saveBtn').addEventListener('click', () => this.saveNote());
-                document.getElementById('deleteBtn').addEventListener('click', () => this.deleteNote());
-                document.getElementById('searchBox').addEventListener('input', (e) => this.searchNotes(e.target.value));
-                document.getElementById('translateBtn').addEventListener('click', () => this.translateNote());
-                document.getElementById('generateNoteBtn').addEventListener('click', () => this.generateAINote());
-                
-                // Auto-save on content change (debounced)
-                let saveTimeout;
-                const autoSave = () => {
-                    clearTimeout(saveTimeout);
-                    saveTimeout = setTimeout(() => {
-                        if (this.currentNote && this.currentNote.id) {
-                            this.saveNote(true);
-                        }
-                    }, 2000);
-                };
-                
-                document.getElementById('noteTitle').addEventListener('input', autoSave);
-                document.getElementById('noteContent').addEventListener('input', autoSave);
             }
 
             async loadNotes() {
@@ -631,12 +635,19 @@
 
                 this.currentNote = note;
                 this.showEditor();
-                this.renderNotesList(); // Re-render to update active state
+                this.renderNotesList();
                 
                 document.getElementById('noteTitle').value = note.title || '';
                 document.getElementById('noteContent').value = note.content || '';
                 document.getElementById('editorTitle').textContent = note.title || 'Untitled Note';
+
+                // Populate the new fields from the note data
+                document.getElementById('noteTags').value = note.tags || '';
+                document.getElementById('eventDate').value = note.event_date || '';
+                document.getElementById('eventTime').value = note.event_time || '';
             }
+
+
 
             createNewNote() {
                 this.currentNote = {
@@ -650,10 +661,12 @@
                 this.showEditor();
                 document.getElementById('noteTitle').value = '';
                 document.getElementById('noteContent').value = '';
+                document.getElementById('noteTags').value = '';
+                document.getElementById('eventDate').value = '';
+                document.getElementById('eventTime').value = '';
                 document.getElementById('editorTitle').textContent = 'New Note';
                 document.getElementById('noteTitle').focus();
                 
-                // Remove active state from all notes
                 document.querySelectorAll('.note-item').forEach(item => {
                     item.classList.remove('active');
                 });
@@ -678,6 +691,9 @@
 
                 const title = document.getElementById('noteTitle').value.trim();
                 const content = document.getElementById('noteContent').value.trim();
+                const tags = document.getElementById('noteTags').value.trim();
+                const eventDate = document.getElementById('eventDate').value;
+                const eventTime = document.getElementById('eventTime').value;
 
                 if (!title && !content) {
                     if (!isAutoSave) {
@@ -689,19 +705,20 @@
                 try {
                     const noteData = {
                         title: title || 'Untitled',
-                        content: content
+                        content: content,
+                        tags: tags,
+                        event_date: eventDate,
+                        event_time: eventTime
                     };
 
                     let response;
                     if (this.currentNote.id) {
-                        // Update existing note
                         response = await fetch(`/api/notes/${this.currentNote.id}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(noteData)
                         });
                     } else {
-                        // Create new note
                         response = await fetch('/api/notes', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -714,7 +731,6 @@
                     const savedNote = await response.json();
                     this.currentNote = savedNote;
                     
-                    // Update notes list
                     const existingIndex = this.notes.findIndex(n => n.id === savedNote.id);
                     if (existingIndex >= 0) {
                         this.notes[existingIndex] = savedNote;
@@ -745,7 +761,6 @@
 
                     if (!response.ok) throw new Error('Failed to delete note');
 
-                    // Remove from notes array
                     this.notes = this.notes.filter(n => n.id !== this.currentNote.id);
                     this.renderNotesList();
                     this.hideEditor();
