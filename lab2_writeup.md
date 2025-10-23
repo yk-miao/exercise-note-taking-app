@@ -1,276 +1,105 @@
-# Lab 2 Writeup: Database Refactoring and Vercel Deployment
+# Lab 2 Writeup
 
 ## Overview
 
-This document outlines the complete process of refactoring a Flask note-taking application from SQLite to PostgreSQL (Supabase) and deploying it to Vercel. The refactoring was necessary because Vercel's serverless environment cannot reliably write to or read from local database files.
+In this Lab2 exercise, we have following tasks: 1. apply LLM model to add translating feature and note generating feature; 2. modify the code to store data in an external database; 3. deploy the app on vercel. In this markdown file, we will go through these tasks step by step and discuss the dificulty encountered.
 
-## Table of Contents
 
-1. [Problem Statement](#problem-statement)
-2. [Solution Architecture](#solution-architecture)
-3. [Database Refactoring Steps](#database-refactoring-steps)
-4. [Supabase Setup](#supabase-setup)
-5. [Local Testing](#local-testing)
-6. [Vercel Deployment](#vercel-deployment)
-7. [Troubleshooting](#troubleshooting)
-8. [Final Verification](#final-verification)
+## LLM Model Application
 
-## Problem Statement
+### What was done
+- Selected model and got the api key from github.com/marketplace/models. 
+- Saved the api key in .env file which was not committed to version control. 
+- Wrote core part of the code to guide AI. 
+- Added translating feature and note generating feature using vibe coding.
+  
+The note generating feature allows the users to input natural language and choose the output language they want. We also help the users extract three tags, event date and event time.
 
-The original application used SQLite with a local database file (`database/app.db`), which works fine for local development but fails in serverless environments like Vercel because:
+### Challenge Encounter
+The difficulty of this part was guiding the AI agent to form the ideal frontend.  
 
-- Serverless functions are stateless and ephemeral
-- File system writes are not persistent between function invocations
-- Local file paths are not reliable in cloud environments
+<img width="415" height="288" alt="image" src="https://github.com/user-attachments/assets/134122a4-aa10-44db-9c57-956d1675dcfc" />  
 
-## Solution Architecture
+At first the tags, event date and event time was shown inside the content.  
 
-We refactored the application to use PostgreSQL hosted on Supabase, which provides:
+<img width="372" height="91" alt="image" src="https://github.com/user-attachments/assets/6974366e-a523-479a-a2ac-8c12d68e7457" />  
 
-- Persistent cloud-hosted database
-- Connection pooling for serverless environments
-- SSL encryption for secure connections
-- Automatic backups and scaling
+Then I tried to describe my requirement again.  
 
-## Database Refactoring Steps
+<img width="415" height="318" alt="image" src="https://github.com/user-attachments/assets/ea3f136c-0786-455f-aef9-af9ecda84e2a" />  
 
-### 1. Update Database Configuration (`src/main.py`)
+Still not what I wanted.  
 
-**Before:**
-```python
-# configure database to use repository-root `database/app.db`
-ROOT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-DB_PATH = os.path.join(ROOT_DIR, 'database', 'app.db')
-os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+The problem was finally solved by giving the AI agent an example image.  
 
-app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{DB_PATH}"
-```
+<img width="453" height="416" alt="image" src="https://github.com/user-attachments/assets/f5c58995-500e-4bc4-b761-14e28e87909b" />
 
-**After:**
-```python
-# Database configuration
-# Prefer DATABASE_URL (e.g., Supabase Postgres) with normalization and sensible engine options.
-ROOT_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-DB_PATH = os.path.join(ROOT_DIR, 'database', 'app.db')
 
-database_url = os.environ.get('DATABASE_URL')
+## Refactor to External Database
 
-def normalize_database_url(url: str) -> str:
-    # Convert postgres:// and postgresql:// to postgresql+psycopg:// for SQLAlchemy 2
-    if url.startswith('postgres://'):
-        url = 'postgresql+psycopg://' + url[len('postgres://'):]
-    elif url.startswith('postgresql://'):
-        url = 'postgresql+psycopg://' + url[len('postgresql://'):]
-    # Ensure sslmode=require for hosted Postgres if not explicitly set
-    if url.startswith('postgresql+psycopg://') and 'sslmode=' not in url:
-        separator = '&' if '?' in url else '?'
-        url = f"{url}{separator}sslmode=require"
-    return url
+Refactored the application to use PostgreSQL hosted on Supabase.
 
-if database_url:
-    app.config['SQLALCHEMY_DATABASE_URI'] = normalize_database_url(database_url)
-else:
-    # Local fallback to SQLite in repo database/app.db
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{DB_PATH}"
+### Database Refactoring Steps
 
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_pre_ping': True,
-    'pool_recycle': 300,
-    'pool_size': 5,
-    'max_overflow': 10,
-}
-```
+<img width="356" height="180" alt="image" src="https://github.com/user-attachments/assets/fc33d5f9-703b-4d19-a3f3-a94b704f12d5" />
 
-### 2. Add PostgreSQL Driver (`requirements.txt`)
+- Update Database Configuration (`src/main.py`)
+
+- Add PostgreSQL Driver (`requirements.txt`)
 
 Added the PostgreSQL driver:
 ```
 psycopg[binary]==3.2.3
 ```
 
-### 3. Update Documentation (`README.md`)
+### Supabase Setup
 
-Added comprehensive documentation for:
-- Database configuration options
-- Supabase setup instructions
-- Vercel deployment steps
-- Environment variable requirements
-
-## Supabase Setup
-
-### 1. Create Supabase Project
+- Create Supabase Project
 
 1. Go to [Supabase](https://supabase.com)
 2. Create a new project
-3. Wait for the project to be provisioned
 
-### 2. Get Connection String
+- Get Connection String
 
-1. Navigate to **Project Settings** → **Database**
-2. Scroll down to **Connection string**
-3. Select **psql** or **pooled** connection string
-4. Copy the connection string (format: `postgres://USER:PASSWORD@HOST:PORT/DATABASE`)
+1. Navigate to **Connection string**
+2. Select **pooled** connection string
+3. Copy the connection string 
 
-### 3. Test Connection
+<img width="2030" height="980" alt="image" src="https://github.com/user-attachments/assets/1a3d68e2-dd26-493e-aecc-e4bd2095aeb8" />
 
-Test the connection using `psql`:
-```bash
-psql "postgresql://postgres.<project-ref>:<password>@aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require" -c "select now();"
-```
 
-## Local Testing
+### Testing 
 
-### 1. Set Environment Variables
+<img width="2908" height="1238" alt="image" src="https://github.com/user-attachments/assets/3b78c280-b55a-4860-9695-50bbce2ee7b3" />
 
-```bash
-export DATABASE_URL="postgresql://postgres.<project-ref>:<password>@aws-1-us-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
-export SECRET_KEY="something-random"
-```
-
-### 2. Install Dependencies
-
-```bash
-source venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 3. Run Application
-
-```bash
-python src/main.py
-```
-
-### 4. Test API Endpoints
-
-Create a note:
-```bash
-curl -X POST http://localhost:5001/api/notes \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Hello","content":"From Supabase"}'
-```
-
-List notes:
-```bash
-curl http://localhost:5001/api/notes
-```
-
-### 5. Verify in Supabase
-
-1. Go to Supabase Dashboard
-2. Navigate to **Table Editor**
-3. Check the `note` table for your test data
 
 ## Vercel Deployment
 
-### 1. Prepare for Deployment
+### What was done
 
-Ensure all changes are committed:
-```bash
-git add .
-git commit -m "Refactor database to use PostgreSQL with Supabase"
-git push
-```
-
-### 2. Configure Vercel Environment Variables
-
-1. Go to Vercel Dashboard
-2. Select your project
-3. Navigate to **Settings** → **Environment Variables**
-4. Add the following variables:
+1. Asked AI agent to help modify the code for vercel deployment.
+2. Go to Vercel Dashboard
+3. Select our project and set up
+4. Navigate to **Settings** → **Environment Variables**
+5. Add the following variables:
 
    - **Name**: `DATABASE_URL`
-   - **Value**: Your Supabase connection string
+   - **Value**: Paste the Supabase connection string
    
    - **Name**: `SECRET_KEY`
    - **Value**: A random secret string
 
-### 3. Deploy
+### Challenge Encounter
+The direct connection of the supabase connection string was used at first, the deployment failed with error 500. With the suggestion from deepseek, the supabase database url was changed into pool connection and ssl mode was used. After that the deployment works well.
 
-1. Push changes to trigger automatic deployment, or
-2. Manually trigger deployment from Vercel Dashboard
 
-### 4. Disable Deployment Protection (if needed)
 
-If you encounter authentication errors:
-1. Go to **Settings** → **Deployment Protection**
-2. Disable protection for Production environment
-3. Redeploy
 
-## Troubleshooting
+## Lesson Learnt
 
-### Common Issues and Solutions
+- When an AI model fails to provide us with the desired results, we can switch to another AI model for assistance
+- Providing images for AI agents can help them better understand the frontend we want
 
-#### 1. DNS Resolution Error
-**Error**: `could not translate host name "db.hbktagimjbpobdlhhfkw.supabase.co" to address`
 
-**Solution**:
-- Check if you're using VPN/Proxy
-- Try different network
-- Flush DNS cache: `sudo dscacheutil -flushcache`
 
-#### 2. Module Not Found Error
-**Error**: `ModuleNotFoundError: No module named 'psycopg2'`
 
-**Solution**:
-- Ensure `psycopg[binary]==3.2.3` is in `requirements.txt`
-- Reinstall dependencies: `pip install -r requirements.txt --upgrade`
-- Verify URL normalization converts to `postgresql+psycopg://`
-
-#### 3. Authentication Error
-**Error**: `FATAL: Tenant or user not found`
-
-**Solution**:
-- Verify connection string format
-- Ensure username includes project reference: `postgres.<project-ref>`
-- Check password for special characters (keep URL quoted)
-
-#### 4. Vercel Function Errors
-**Error**: `FUNCTION_INVOCATION_FAILED`
-
-**Solution**:
-- Verify environment variables are set in Vercel
-- Check function logs in Vercel Dashboard
-- Ensure `requirements.txt` includes all dependencies
-
-## Final Verification
-
-### 1. Test Deployed API
-
-Create a note via deployed API:
-```bash
-curl -X POST https://your-vercel-domain.vercel.app/api/notes \
-  -H "Content-Type: application/json" \
-  -d '{"title":"Test from Vercel","content":"This note was created via the deployed API"}'
-```
-
-List notes:
-```bash
-curl https://your-vercel-domain.vercel.app/api/notes
-```
-
-### 2. Verify Data Persistence
-
-1. Create notes via the deployed API
-2. Check Supabase Table Editor to confirm data is stored
-3. Restart the application and verify data persists
-
-## Key Benefits Achieved
-
-1. **Cloud-Native**: Application now works in serverless environments
-2. **Scalable**: PostgreSQL can handle concurrent users and large datasets
-3. **Reliable**: Data persistence with automatic backups
-4. **Secure**: SSL encryption for all database connections
-5. **Flexible**: Works both locally (SQLite fallback) and in production (PostgreSQL)
-
-## Conclusion
-
-The refactoring successfully transformed the application from a local SQLite-based system to a cloud-native PostgreSQL solution. The application now:
-
-- Works seamlessly on Vercel's serverless platform
-- Maintains backward compatibility with local SQLite development
-- Provides robust data persistence and scalability
-- Includes comprehensive error handling and connection management
-
-The deployment is now production-ready and can handle real-world usage patterns.
